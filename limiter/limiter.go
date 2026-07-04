@@ -5,13 +5,14 @@ import (
 	"time"
 )
 
-// REMINDER: Anything that declares an interface's methods is that type
+// REMINDER: Anything that uses an interface method is its type
 type Limiter interface {
+	// Allow determines whether or not a request goes through
 	Allow(ctx context.Context, key string) (Result, error)
 }
 
 type Result struct {
 	Allowed   bool
-	Remaining int
-	ResetAt   time.Time
+	Remaining int       // How many requests left in the current window
+	ResetAt   time.Time // When the current window expires
 }
