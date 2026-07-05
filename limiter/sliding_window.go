@@ -14,6 +14,7 @@ type SlidingWindowLimiter struct {
 	limit     int
 	window    time.Duration
 	subWindow time.Duration
+	fallback  *fallback
 }
 
 func NewSlidingWindow(client *redis.Client, limit int, window time.Duration, numSubWindows int) *SlidingWindowLimiter {
@@ -22,6 +23,7 @@ func NewSlidingWindow(client *redis.Client, limit int, window time.Duration, num
 		limit:     limit,
 		window:    window,
 		subWindow: window / (time.Duration(numSubWindows)),
+		fallback:  newFallback(limit/2, window),
 	}
 }
 
@@ -67,7 +69,7 @@ func (sw *SlidingWindowLimiter) Allow(ctx context.Context, key string) (Result, 
 		sw.limit, remainingRatio, int(sw.window.Seconds()),
 	).Result()
 	if err != nil {
-		return Result{}, fmt.Errorf("sliding window lua script failed for key %s: %w", key, err)
+		return sw.fallback.Allow(ctx, key)
 	}
 
 	vals := result.([]interface{})

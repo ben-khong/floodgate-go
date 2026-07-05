@@ -2,7 +2,6 @@ package limiter
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -12,6 +11,7 @@ type TokenBucketLimiter struct {
 	client     *redis.Client
 	capacity   int
 	refillRate float64
+	fallback   *fallback
 }
 
 func NewTokenBucket(client *redis.Client, capacity int, refillRate float64) *TokenBucketLimiter {
@@ -19,6 +19,7 @@ func NewTokenBucket(client *redis.Client, capacity int, refillRate float64) *Tok
 		client:     client,
 		capacity:   capacity,
 		refillRate: refillRate,
+		fallback:   newFallback(capacity/2, time.Minute),
 	}
 }
 
@@ -68,7 +69,7 @@ func (tb *TokenBucketLimiter) Allow(ctx context.Context, key string) (Result, er
 		tb.capacity, tb.refillRate, time.Now().Unix(),
 	).Result()
 	if err != nil {
-		return Result{}, fmt.Errorf("token bucket lua script failed for key %s: %w", key, err)
+		return tb.fallback.Allow(ctx, key)
 	}
 
 	vals := result.([]interface{}) // tells Go "this is a slice"

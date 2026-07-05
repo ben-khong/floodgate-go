@@ -12,7 +12,8 @@ type FixedWindowLimiter struct {
 	client *redis.Client
 	limit  int
 	// time.Duration represents a length of time. We use it for ambiguity.
-	window time.Duration
+	window   time.Duration
+	fallback *fallback
 }
 
 // Constructors are functions that conveniently create and return a struct.
@@ -23,7 +24,8 @@ func NewFixedWindow(client *redis.Client, limit int, window time.Duration) *Fixe
 		client: client,
 		limit:  limit,
 		// window is the time when that window will expire
-		window: window,
+		window:   window,
+		fallback: newFallback(limit/2, window),
 	}
 }
 
@@ -42,14 +44,13 @@ func (fw *FixedWindowLimiter) Allow(ctx context.Context, key string) (Result, er
 	// If INCR is called on a key that doesn't exist yet, it returns 1
 	count, err := redisClient.Incr(ctx, windowKey).Result()
 	if err != nil {
-		return Result{}, fmt.Errorf("error: could not increment redis counter: %w", err)
+		return fw.fallback.Allow(ctx, key)
 	}
-
 	// If first request in that window, set an expiry
 	if count == 1 {
 		_, err = redisClient.Expire(ctx, windowKey, fw.window).Result()
 		if err != nil {
-			return Result{}, fmt.Errorf("error: could not set expiry: %w", err)
+			return fw.fallback.Allow(ctx, key)
 		}
 	}
 
