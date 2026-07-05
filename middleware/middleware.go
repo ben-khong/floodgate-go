@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 )
 
 func RateLimitMiddleware(l limiter.Limiter, next http.Handler) http.Handler {
@@ -19,11 +20,15 @@ func RateLimitMiddleware(l limiter.Limiter, next http.Handler) http.Handler {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", result.Remaining))
+		w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
+
 		if !result.Allowed {
+			retryAfter := time.Until(result.ResetAt).Seconds()
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", int(retryAfter)))
 			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
-		w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", result.Remaining))
 		next.ServeHTTP(w, r)
 	})
 }
