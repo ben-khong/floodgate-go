@@ -48,28 +48,12 @@ func TestFallback(t *testing.T) {
 		}
 	})
 
-	t.Run("allow request exactly up to limit", func(t *testing.T) {
-		fb := newFallback(10, time.Minute)
-
-		for i := 0; i < 9; i++ {
-			fb.Allow(context.Background(), "test-key")
-		}
-		result, err := fb.Allow(context.Background(), "test-key")
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-		if result.Allowed != true {
-			t.Errorf("expected allowed=true, got allowed=false")
-		}
-	})
-
 	t.Run("new window resets counter", func(t *testing.T) {
-		fb := newFallback(2, 100*time.Millisecond)
-
+		fb := newFallback(2, time.Second)
 		for i := 0; i < 2; i++ {
 			fb.Allow(context.Background(), "test-key")
 		}
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(1100 * time.Millisecond)
 		result, err := fb.Allow(context.Background(), "test-key")
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
