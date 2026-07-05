@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -26,61 +25,56 @@ func NewSlidingWindow(client *redis.Client, limit int, window time.Duration, num
 	}
 }
 
+var slidingWindowScript = `
+	local prevKey = KEYS[1]
+	local curKey = KEYS[2]
+	local limit = tonumber(ARGV[1])
+	local remainingRatio = tonumber(ARGV[2])
+	local window = tonumber(ARGV[3])
+
+	local result = redis.call("MGET", prevKey, curKey)
+	local prevCount = result[1]
+	local currCount = result[2]
+
+	if prevCount == false then prevCount = 0 else prevCount = tonumber(prevCount) end
+	if currCount == false then currCount = 0 else currCount = tonumber(currCount) end
+
+	local estimate = (prevCount * remainingRatio) + currCount
+	if estimate < limit then
+		local newCount = redis.call("INCR", curKey)
+		if newCount == 1 then
+			redis.call("EXPIRE", curKey, window)
+		end
+		local remaining = limit - estimate - 1
+		return {1, remaining}
+	else
+		return {0, 0} 
+	end 
+`
+
 func (sw *SlidingWindowLimiter) Allow(ctx context.Context, key string) (Result, error) {
-	curSW := time.Now().Truncate(sw.subWindow)
+	now := time.Now()
+	curSW := now.Truncate(sw.subWindow)
 	prevSW := curSW.Add(-sw.subWindow)
 
 	curKey := fmt.Sprintf("%s:%d", key, curSW.Unix())
 	prevKey := fmt.Sprintf("%s:%d", key, prevSW.Unix())
 
-	vals, err := sw.client.MGet(ctx, prevKey, curKey).Result()
+	remainingRatio := math.Min(1.0, float64(curSW.Sub(now.Add(-sw.window)))/float64(sw.subWindow))
+
+	result, err := sw.client.Eval(ctx, slidingWindowScript,
+		[]string{prevKey, curKey},
+		sw.limit, remainingRatio, int(sw.window.Seconds()),
+	).Result()
 	if err != nil {
-		return Result{}, fmt.Errorf("error: could not retrieve values of specified keys: %w", err)
+		return Result{}, fmt.Errorf("sliding window lua script failed for key %s: %w", key, err)
 	}
 
-	prevEnd := prevSW.Add(sw.subWindow)
-	swStart := time.Now().Add(-sw.window)
-	swSize := sw.subWindow
+	vals := result.([]interface{})
 
-	remainingRatio := math.Min(1.0, float64((prevEnd.Sub(swStart))/swSize))
-
-	var prevCount float64
-	if vals[0] != nil {
-		prevCount, err = strconv.ParseFloat(vals[0].(string), 64)
-		if err != nil {
-			return Result{}, fmt.Errorf("error parsing prevCount: %w", err)
-		}
-	}
-
-	var currCount float64
-	if vals[1] != nil {
-		currCount, err = strconv.ParseFloat(vals[1].(string), 64)
-		if err != nil {
-			return Result{}, fmt.Errorf("error parsing currCount: %w", err)
-		}
-	}
-
-	estimate := (float64(prevCount) * remainingRatio) + float64(currCount)
-
-	if estimate < float64(sw.limit) {
-		currCount, err := sw.client.Incr(ctx, curKey).Result()
-		if err != nil {
-			return Result{}, fmt.Errorf("error: could not increment current sub window counter: %w", err)
-		}
-
-		if currCount == 1 {
-			sw.client.Expire(ctx, curKey, sw.window)
-		}
-
-		return Result{
-			Allowed:   true,
-			Remaining: sw.limit - int(estimate) - 1,
-			ResetAt:   time.Now().Add(sw.window),
-		}, nil
-	}
 	return Result{
-		Allowed:   false,
-		Remaining: 0,
-		ResetAt:   time.Now().Add(sw.window),
+		Allowed:   vals[0].(int64) == 1,
+		Remaining: int(vals[1].(int64)),
+		ResetAt:   now.Add(sw.window),
 	}, nil
 }
