@@ -9,6 +9,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// SlidingWindowLimiter approximates a true sliding window by dividing time into
+// sub-windows and tracking two counters: the previous and current sub-window.
+// This reduces the boundary problem where fixed windows can allow 2x the limit
+// at window edges.
 type SlidingWindowLimiter struct {
 	client    *redis.Client
 	limit     int
@@ -62,8 +66,12 @@ func (sw *SlidingWindowLimiter) Allow(ctx context.Context, key string) (Result, 
 	curKey := fmt.Sprintf("%s:%d", key, curSW.Unix())
 	prevKey := fmt.Sprintf("%s:%d", key, prevSW.Unix())
 
+	// Calculate what fraction of the previous sub-window still falls inside the
+	// current sliding window. Capped at 1.0 for when it's fully within range.
 	remainingRatio := math.Min(1.0, float64(curSW.Sub(now.Add(-sw.window)))/float64(sw.subWindow))
 
+	// Pass remainingRatio from Go rather than calculating it in Lua — time math
+	// is simpler in Go and keeps the script focused on Redis operations.
 	result, err := sw.client.Eval(ctx, slidingWindowScript,
 		[]string{prevKey, curKey},
 		sw.limit, remainingRatio, int(sw.window.Seconds()),

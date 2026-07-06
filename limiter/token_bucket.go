@@ -7,6 +7,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// TokenBucketLimiter maintains a bucket of tokens that refills at a constant
+// rate. Each request consumes one token. Bursts are allowed up to the bucket
+// capacity, and requests are denied when the bucket is empty.
 type TokenBucketLimiter struct {
 	client     *redis.Client
 	capacity   int
@@ -23,6 +26,7 @@ func NewTokenBucket(client *redis.Client, capacity int, refillRate float64) *Tok
 	}
 }
 
+// tokenBucketScript is defined at package level to avoid recompiling the script on every request.
 var tokenBucketScript = `
 	local keys = KEYS[1]
 	local capacity = tonumber(ARGV[1])
@@ -53,7 +57,6 @@ var tokenBucketScript = `
 		allowed = 0
 	end
 
-
 	local remaining = tokens
 	redis.call("HSET", keys, "tokens", tokens, "lastRefill", now)
 	redis.call("EXPIRE", keys, 3600)
@@ -62,8 +65,6 @@ var tokenBucketScript = `
 `
 
 func (tb *TokenBucketLimiter) Allow(ctx context.Context, key string) (Result, error) {
-	// Eval executes a server-side Lua script with the embedded Redis Lua interpreter.
-	// The return value depends on the script that was executed.
 	result, err := tb.client.Eval(ctx, tokenBucketScript,
 		[]string{key},
 		tb.capacity, tb.refillRate, time.Now().Unix(),
@@ -72,9 +73,9 @@ func (tb *TokenBucketLimiter) Allow(ctx context.Context, key string) (Result, er
 		return tb.fallback.Allow(ctx, key)
 	}
 
-	vals := result.([]interface{}) // tells Go "this is a slice"
-	allowed := vals[0].(int64)     // Since Lua doesn't have bools either 1 or 0
-	remaining := vals[1].(int64)   // second value
+	vals := result.([]interface{})
+	allowed := vals[0].(int64)
+	remaining := vals[1].(int64)
 
 	return Result{
 		Allowed:   allowed == 1,

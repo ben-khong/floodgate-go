@@ -1,3 +1,5 @@
+// Package limiter provides rate limiting algorithms and a shared interface
+// for controlling request rates using Redis as a distributed counter store.
 package limiter
 
 import (
@@ -5,14 +7,14 @@ import (
 	"time"
 )
 
-// REMINDER: Anything that uses an interface method is its type
+// Limiter is implemented by all rate limiting algorithms.
 type Limiter interface {
-	// Allow determines whether or not a request goes through
 	Allow(ctx context.Context, key string) (Result, error)
 }
 
+// Result holds the outcome of a rate limit check.
 type Result struct {
 	Allowed   bool
-	Remaining int       // How many requests left in the current window
-	ResetAt   time.Time // When the current window expires
+	Remaining int
+	ResetAt   time.Time
 }
