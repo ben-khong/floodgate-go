@@ -12,7 +12,7 @@ When you use an API, there are limits on how many requests you can make — for 
 
 ## How it Works
 
-<img width="196" height="150" alt="rate_limiter_flow" src="https://github.com/user-attachments/assets/8b6ed2f7-6e8f-44c6-8b05-40fd3a9e253e" /><img width="1440" height="1040" alt="image" src="https://github.com/user-attachments/assets/fc03dad7-4c0a-497b-85ea-9ef42dc61ed6" />
+<img width="1440" height="1040" alt="image" src="https://github.com/user-attachments/assets/fc03dad7-4c0a-497b-85ea-9ef42dc61ed6" />
 
 ## Algorithms
 
