@@ -18,7 +18,11 @@ Three different strategies for counting and limiting requests are supported. Eac
 
 **Token Bucket** — Imagine a bucket that slowly refills with tokens. Each request uses one token. You can burst through requests quickly, but once the bucket is empty you have to wait for it to refill.
 
-**Sliding Window** — A more accurate version of fixed window that looks back a rolling 60 seconds instead of resetting on a hard boundary. Reduces the gaming problem without storing every request timestamp.
+**Sliding Window** — Rather than resetting a counter on a hard boundary, it looks back a rolling 60 seconds 
+from right now. It does this by tracking two sub buckets — the previous 
+and the current — and blending them together based on how much of the previous 
+bucket still falls within the last 60 seconds. This smooths out the boundary 
+problem without storing every single request timestamp.
 
 ---
 
