@@ -4,12 +4,6 @@ A rate limiter built in Go that controls how many requests a client can make to 
 
 ---
 
-## What is a Rate Limiter?
-
-When you use an API, there are limits on how many requests you can make — for example, 100 requests per minute. A rate limiter is what enforces those limits. Without one, a single client could flood a server with requests and take it down.
-
----
-
 ## How it Works
 
 <img width="1440" height="1040" alt="image" src="https://github.com/user-attachments/assets/fc03dad7-4c0a-497b-85ea-9ef42dc61ed6" />
