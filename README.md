@@ -14,6 +14,8 @@ When you use an API, there are limits on how many requests you can make — for 
 
 <img width="1440" height="1040" alt="image" src="https://github.com/user-attachments/assets/fc03dad7-4c0a-497b-85ea-9ef42dc61ed6" />
 
+---
+
 ## Algorithms
 
 Three different strategies for counting and limiting requests are supported. Each has different tradeoffs:
