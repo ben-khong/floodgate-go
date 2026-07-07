@@ -1,4 +1,4 @@
-<img width="196" height="150" alt="rate_limiter_flow" src="https://github.com/user-attachments/assets/8b6ed2f7-6e8f-44c6-8b05-40fd3a9e253e" /><img width="1440" height="1040" alt="image" src="https://github.com/user-attachments/assets/fc03dad7-4c0a-497b-85ea-9ef42dc61ed6" /># Distributed Rate Limiter
+# Distributed Rate Limiter
 
 A rate limiter built in Go that controls how many requests a client can make to an API. It uses Redis to share counters across multiple servers, so limits are enforced consistently no matter which server handles the request.
 
