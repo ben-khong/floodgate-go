@@ -1,6 +1,6 @@
-# Distributed Rate Limiter
+# Distrl
 
-A rate limiter built in Go that controls how many requests a client can make to an API. It uses Redis to share counters across multiple servers, so limits are enforced consistently no matter which server handles the request.
+Distrl is a rate limiter built in Go that controls how many requests a client can make to an API. It uses Redis to share counters across multiple servers, so limits are enforced consistently no matter which server handles the request.
 
 ---
 
