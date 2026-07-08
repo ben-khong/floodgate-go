@@ -44,7 +44,10 @@ If Redis goes down, each limiter switches to an in-memory counter with half the 
 
 ```
 rate-limiter/
-├── main.go               # Starts the server (see Getting Started)
+├── main.go               # Starts the server
+├── docker-compose.yml    # Spins up 3 app instances, Redis, and Nginx
+├── Dockerfile            # Builds the Go app image
+├── nginx.conf            # Load balancer config
 ├── store/
 │   └── redis.go          # Connects to Redis
 ├── limiter/
@@ -61,51 +64,24 @@ rate-limiter/
 
 ## Getting Started
 
-**1. Start Redis (requires Docker):**
+**1. Clone the repo and start everything (requires Docker):**
 ```bash
-docker run -d -p 6379:6379 --name my-redis redis
+docker compose -f docker-compose.yml up --build
 ```
 
-**2. Update `main.go`**
+This spins up 3 Go app instances, a Redis container, and an Nginx load balancer. Requests are distributed across all three instances, all sharing the same Redis counters.
 
-The server isn't wired up by default. Uncomment the imports and add the following inside `main()`:
-
-```go
-import (
-    "distributed-rate-limiter/limiter"
-    "distributed-rate-limiter/middleware"
-    "net/http"
-    "time"
-)
-
-// Pick an algorithm
-l := limiter.NewFixedWindow(client, 100, time.Minute)
-
-// Create a handler
-handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("ok"))
-})
-
-// Wrap it with the rate limiter
-http.Handle("/", middleware.RateLimitMiddleware(l, handler))
-http.ListenAndServe(":8080", nil)
-```
-
-**3. Run the server:**
+**2. Test it:**
 ```bash
-go run main.go
+curl -i http://localhost:80
 ```
 
-**4. Test it:**
+**3. Verify the rate limit is enforced across all instances:**
 ```bash
-curl -i http://localhost:8080
+for i in $(seq 1 110); do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:80; done
 ```
 
-Keep hitting the endpoint and you'll eventually see:
-```
-HTTP/1.1 429 Too Many Requests
-Retry-After: 42
-```
+You'll see 100 `200` responses followed by `429`s — proving all three instances share the same counter through Redis.
 
 ---
 
@@ -122,6 +98,8 @@ Every response includes headers so clients know where they stand:
 ---
 
 ## Switching Algorithms
+
+To switch algorithms, update `main.go`:
 
 ```go
 // Fixed Window — 100 requests per minute
