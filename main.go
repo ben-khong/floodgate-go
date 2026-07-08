@@ -1,10 +1,12 @@
 package main
 
 import (
+	"distributed-rate-limiter/limiter"
+	"distributed-rate-limiter/middleware"
 	"distributed-rate-limiter/store"
-	// "distributed-rate-limiter/limiter"
-	// "distributed-rate-limiter/middleware"
-	// "net/http"
+	"fmt"
+	"net/http"
+	"time"
 )
 
 func main() {
@@ -13,4 +15,20 @@ func main() {
 		panic(err)
 	}
 	defer client.Close()
+
+	fmt.Println("connected to redis!")
+
+	l := limiter.NewFixedWindow(client, 100, time.Minute)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+
+	wrapped := middleware.RateLimitMiddleware(l, handler)
+
+	http.Handle("/", wrapped)
+
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		panic(err)
+	}
 }
