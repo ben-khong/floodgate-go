@@ -1,6 +1,6 @@
-# Distrl
+# Floodgate
 
-Distrl is a distributed rate limiter built in Go that controls how many requests a client can make to an API. It uses Redis to share counters across multiple servers, so limits are enforced consistently no matter which server handles the request.
+Floodgate is a distributed rate limiter built in Go that controls how many requests a client can make to an API. It uses Redis to share counters across multiple servers, so limits are enforced consistently no matter which server handles the request.
 
 ---
 
